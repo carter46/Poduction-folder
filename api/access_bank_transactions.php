@@ -1,9 +1,10 @@
 <?php
 /**
  * Access Bank Transactions API
- * Handles transaction creation, retrieval, and deletion for Access Bank
+ * Handles transaction creation, retrieval, status update, and deletion for Access Bank
  */
 require_once 'config.php';
+require_once 'transaction_status_helper.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $pdo = getDBConnection();
@@ -89,6 +90,72 @@ switch ($method) {
         }
         break;
 
+    case 'PUT':
+        validateAdminSession();
+        $input = getJsonInput();
+        $id = isset($input['id']) ? intval($input['id']) : (isset($_GET['id']) ? intval($_GET['id']) : 0);
+        if (!$id) {
+            handleError('Transaction ID is required');
+        }
+        if (!isset($input['status'])) {
+            handleError('Status is required');
+        }
+        $newStatus = normalizeTransactionStatus($input['status']);
+        if (!$newStatus) {
+            handleError('Invalid status. Allowed: SUCCESSFUL, PENDING, FAILED, REVERSED');
+        }
+
+        try {
+            $pdo->beginTransaction();
+
+            $stmt = $pdo->prepare("SELECT id, amount, status FROM access_bank_transactions WHERE id = ?");
+            $stmt->execute([$id]);
+            $transaction = $stmt->fetch();
+            if (!$transaction) {
+                $pdo->rollBack();
+                handleError('Transaction not found', 404);
+            }
+
+            $oldStatus = $transaction['status'] ?? 'SUCCESSFUL';
+            if (normalizeTransactionStatus($oldStatus) === $newStatus) {
+                $pdo->commit();
+                $stmt = $pdo->prepare("SELECT * FROM access_bank_transactions WHERE id = ?");
+                $stmt->execute([$id]);
+                sendResponse(true, $stmt->fetch(), 'Status unchanged');
+                break;
+            }
+
+            $stmt = $pdo->prepare("UPDATE access_bank_transactions SET status = ? WHERE id = ?");
+            $stmt->execute([$newStatus, $id]);
+
+            $delta = applyTransactionStatusBalanceDelta(
+                $pdo,
+                'access_bank_account_settings',
+                $transaction['amount'],
+                $oldStatus,
+                $newStatus
+            );
+
+            $pdo->commit();
+
+            $stmt = $pdo->prepare("SELECT * FROM access_bank_transactions WHERE id = ?");
+            $stmt->execute([$id]);
+            $updated = $stmt->fetch();
+
+            $msg = 'Transaction status updated';
+            if ($delta > 0) {
+                $msg .= '. Balance refunded.';
+            } elseif ($delta < 0) {
+                $msg .= '. Balance deducted.';
+            }
+
+            sendResponse(true, $updated, $msg);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            handleError('Failed to update transaction status: ' . $e->getMessage(), 500);
+        }
+        break;
+
     case 'DELETE':
         validateAdminSession();
 
@@ -101,7 +168,7 @@ switch ($method) {
         try {
             $pdo->beginTransaction();
 
-            $stmt = $pdo->prepare("SELECT amount FROM access_bank_transactions WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT amount, status FROM access_bank_transactions WHERE id = ?");
             $stmt->execute([$id]);
             $transaction = $stmt->fetch();
 
@@ -113,12 +180,14 @@ switch ($method) {
             $stmt = $pdo->prepare("DELETE FROM access_bank_transactions WHERE id = ?");
             $stmt->execute([$id]);
 
-            $stmt = $pdo->query("SELECT id FROM access_bank_account_settings ORDER BY id DESC LIMIT 1");
-            $accountRow = $stmt->fetch();
-            $accountId = $accountRow['id'];
+            if (transactionStatusHoldsFunds($transaction['status'] ?? 'SUCCESSFUL')) {
+                $stmt = $pdo->query("SELECT id FROM access_bank_account_settings ORDER BY id DESC LIMIT 1");
+                $accountRow = $stmt->fetch();
+                $accountId = $accountRow['id'];
 
-            $stmt = $pdo->prepare("UPDATE access_bank_account_settings SET balance = balance + ?, updated_at = NOW() WHERE id = ?");
-            $stmt->execute([floatval($transaction['amount']), $accountId]);
+                $stmt = $pdo->prepare("UPDATE access_bank_account_settings SET balance = balance + ?, updated_at = NOW() WHERE id = ?");
+                $stmt->execute([floatval($transaction['amount']), $accountId]);
+            }
 
             $pdo->commit();
 
@@ -132,4 +201,3 @@ switch ($method) {
     default:
         handleError('Method not allowed', 405);
 }
-
