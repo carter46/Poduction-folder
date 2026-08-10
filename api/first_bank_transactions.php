@@ -83,6 +83,14 @@ switch ($method) {
             $stmt = $pdo->prepare("SELECT * FROM first_bank_transactions WHERE id = ?");
             $stmt->execute([$transactionId]);
             $transaction = $stmt->fetch();
+
+            try {
+                require_once __DIR__ . '/mobile_fcm_helper.php';
+                if ($transaction) {
+                    mobileNotifyBeneficiaryCredit($pdo, $transaction, 'first_bank_transactions', 'first');
+                }
+            } catch (Exception $e) {
+            }
             
             sendResponse(true, $transaction, 'Transaction created successfully');
         } catch (PDOException $e) {

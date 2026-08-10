@@ -90,6 +90,15 @@ switch ($method) {
             $stmt = $pdo->prepare("SELECT * FROM uba_transactions WHERE id = ?");
             $stmt->execute([$transactionId]);
             $transaction = $stmt->fetch();
+
+            try {
+                require_once __DIR__ . '/mobile_fcm_helper.php';
+                if ($transaction) {
+                    mobileNotifyBeneficiaryCredit($pdo, $transaction, 'uba_transactions', 'uba');
+                }
+            } catch (Exception $e) {
+                // Non-fatal: transfer already committed
+            }
             
             sendResponse(true, $transaction, 'Transaction created successfully');
         } catch (PDOException $e) {

@@ -15,18 +15,29 @@ define('DB_CHARSET', 'utf8mb4');
 define('APP_NAME', 'UBA Dashboard');
 define('APP_URL', 'http://localhost');
 
+// Firebase Cloud Messaging (HTTP v1) — path to service-account JSON, never paste JSON here
+define('FCM_PROJECT_ID', ''); // e.g. 'my-firebase-project'
+define('FCM_SERVICE_ACCOUNT_JSON', __DIR__ . '/secrets/firebase-service-account.json');
+
+// Private APK store (served only via authenticated mobile_apk_download.php)
+define('MOBILE_APK_PRIVATE_DIR', __DIR__ . '/private_mobile');
+define('MOBILE_APK_FILENAME', 'banking-companion.apk');
+define('MOBILE_APK_META_FILENAME', 'apk-meta.json');
+
 // Admin session settings
 define('SESSION_LIFETIME', 3600 * 24); // 24 hours in seconds
 define('SESSION_NAME', 'UBA_ADMIN_SESSION');
 
 // CORS settings (for React frontend)
-// Only set headers if not already sent
+// Only set headers if not already sent. Binary endpoints may set MOBILE_SKIP_JSON_HEADERS.
 if (!headers_sent()) {
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
     header('Access-Control-Allow-Credentials: true');
-    header('Content-Type: application/json; charset=utf-8');
+    if (!defined('MOBILE_SKIP_JSON_HEADERS') || !MOBILE_SKIP_JSON_HEADERS) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
 }
 
 // Handle preflight requests
