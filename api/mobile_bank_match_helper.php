@@ -7,6 +7,8 @@
  * Pending visible in history but not counted. FAILED/REVERSED excluded from balance.
  */
 
+require_once __DIR__ . '/transaction_receipt_ids.php';
+
 function mobileNormalizeAccountNumber($account) {
     return preg_replace('/\D+/', '', (string)$account);
 }
@@ -287,6 +289,7 @@ function mobileBuildReceiptDto($row) {
         $status = 'SUCCESSFUL';
     }
     $sourceBank = $row['source_bank'] ?? null;
+    list($sessionId, $referenceId) = txResolveReceiptIds(is_array($row) ? $row : []);
     return [
         'source_table' => $row['source_table'] ?? null,
         'source_bank' => $sourceBank,
@@ -294,6 +297,8 @@ function mobileBuildReceiptDto($row) {
         'transaction_id' => ($row['source_table'] ?? 'tx') . ':' . (isset($row['source_id']) ? intval($row['source_id']) : intval($row['id'] ?? 0)),
         'bank_code' => $row['bank_code'] ?? mobileCanonicalBankCode($row['beneficiary_bank'] ?? ''),
         'reference' => $row['reference'] ?? null,
+        'session_id' => $sessionId,
+        'reference_id' => $referenceId,
         'amount' => floatval($row['amount'] ?? 0),
         'currency' => $row['currency'] ?? 'NGN',
         'status' => $status,

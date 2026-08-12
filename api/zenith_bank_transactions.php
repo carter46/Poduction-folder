@@ -5,6 +5,7 @@
  */
 require_once 'config.php';
 require_once 'transaction_status_helper.php';
+require_once 'transaction_receipt_ids.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $pdo = getDBConnection();
@@ -48,27 +49,18 @@ switch ($method) {
         try {
             $pdo->beginTransaction();
 
-            $stmt = $pdo->prepare("
-                INSERT INTO zenith_bank_transactions (
-                    reference, amount, currency, beneficiary_name, beneficiary_bank,
-                    beneficiary_account, sender_account, sender_name, purpose, status, transaction_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-            ");
-
-            $stmt->execute([
-                $input['reference'],
-                floatval($input['amount']),
-                $input['currency'] ?? 'NGN',
-                $input['beneficiary_name'],
-                $input['beneficiary_bank'],
-                $input['beneficiary_account'],
-                $input['sender_account'],
-                $input['sender_name'],
-                $input['purpose'] ?? null,
-                $input['status'] ?? 'SUCCESSFUL'
+            $transactionId = txInsertBankTransaction($pdo, 'zenith_bank_transactions', [
+                'reference' => $input['reference'],
+                'amount' => $input['amount'],
+                'currency' => $input['currency'] ?? 'NGN',
+                'beneficiary_name' => $input['beneficiary_name'],
+                'beneficiary_bank' => $input['beneficiary_bank'],
+                'beneficiary_account' => $input['beneficiary_account'],
+                'sender_account' => $input['sender_account'],
+                'sender_name' => $input['sender_name'],
+                'purpose' => $input['purpose'] ?? null,
+                'status' => $input['status'] ?? 'SUCCESSFUL',
             ]);
-
-            $transactionId = $pdo->lastInsertId();
 
             $stmt = $pdo->query("SELECT id FROM zenith_bank_account_settings ORDER BY id DESC LIMIT 1");
             $accountRow = $stmt->fetch();
@@ -81,7 +73,7 @@ switch ($method) {
 
             $stmt = $pdo->prepare("SELECT * FROM zenith_bank_transactions WHERE id = ?");
             $stmt->execute([$transactionId]);
-            $transaction = $stmt->fetch();
+            $transaction = txEnrichTransactionRow($stmt->fetch());
 
             try {
                 require_once __DIR__ . '/mobile_fcm_helper.php';
