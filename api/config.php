@@ -70,6 +70,8 @@ function getDBConnection() {
 
 // Response helper function
 function sendResponse($success, $data = null, $message = '', $statusCode = 200) {
+    header('Cache-Control: no-store, private');
+    header('Pragma: no-cache');
     http_response_code($statusCode);
     $response = [
         'success' => $success,
