@@ -135,6 +135,7 @@ function mobileTransactionSources() {
         ['table' => 'first_bank_transactions', 'source_bank' => 'first'],
         ['table' => 'zenith_bank_transactions', 'source_bank' => 'zenith'],
         ['table' => 'access_bank_transactions', 'source_bank' => 'access'],
+        ['table' => 'wema_bank_transactions', 'source_bank' => 'wema'],
     ];
 }
 
@@ -278,6 +279,7 @@ function mobileSenderBankLabel($sourceBank) {
         'first' => 'First Bank',
         'zenith' => 'Zenith Bank',
         'access' => 'Access Bank',
+        'wema' => 'Wema Bank',
     ];
     $key = strtolower((string)$sourceBank);
     return $map[$key] ?? null;
