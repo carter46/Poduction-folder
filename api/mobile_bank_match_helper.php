@@ -14,11 +14,11 @@ function mobileNormalizeAccountNumber($account) {
 }
 
 function mobileCanonicalBankCodes() {
-    return ['UBA', 'FIRST', 'ZENITH', 'ACCESS'];
+    return ['UBA', 'FIRST', 'ZENITH', 'ACCESS', 'WEMA'];
 }
 
 /**
- * Map free-text beneficiary_bank (or code) to canonical UBA|FIRST|ZENITH|ACCESS|null
+ * Map free-text beneficiary_bank (or code) to canonical UBA|FIRST|ZENITH|ACCESS|WEMA|null
  */
 function mobileCanonicalBankCode($bankNameOrCode) {
     $raw = strtoupper(trim((string)$bankNameOrCode));
@@ -45,6 +45,15 @@ function mobileCanonicalBankCode($bankNameOrCode) {
         $raw === 'ZENITH'
     ) {
         return 'ZENITH';
+    }
+    if (
+        $raw === '035' || $compact === '035' ||
+        $raw === 'WEMA' || $compact === 'WEMA' || $compact === 'WEMABANK' ||
+        strpos($compact, 'WEMABANK') !== false ||
+        strpos($compact, 'ALAT') !== false ||
+        strpos($compact, 'ALATBYWEMA') !== false
+    ) {
+        return 'WEMA';
     }
     if (
         $raw === '044' || $compact === '044' ||

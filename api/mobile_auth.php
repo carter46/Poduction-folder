@@ -25,7 +25,7 @@ if ($action === 'login') {
         handleError('bank_code, account_number, and password are required');
     }
     if (!in_array($bankCode, mobileCanonicalBankCodes(), true)) {
-        handleError('Invalid bank_code. Use UBA, FIRST, ZENITH, or ACCESS');
+        handleError('Invalid bank_code. Use UBA, FIRST, ZENITH, ACCESS, or WEMA');
     }
 
     $hash = mobileGetSharedPasswordHash($pdo);
